@@ -48,10 +48,11 @@ func gaugeHndlr(w http.ResponseWriter, r *http.Request) {
 	value, err := strconv.ParseFloat(string(mValue), 64)
 	if err != nil {
 		http.Error(w, "parsing error. Bad request", http.StatusBadRequest)
-	} else {
-		gmetrics[mName] = gauge{v: value}
-		w.WriteHeader(http.StatusOK)
+		return
 	}
+	gmetrics[mName] = gauge{v: value}
+	//log.Println("gauga updated")
+	w.WriteHeader(http.StatusOK)
 }
 
 func counterHndlr(w http.ResponseWriter, r *http.Request) {
@@ -62,10 +63,11 @@ func counterHndlr(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cmetrics[mName] = counter{cmetrics[mName].v + value}
+	//log.Println("caunta updated")
 	w.WriteHeader(http.StatusOK)
 }
 
-func getterMetricHndlr(w http.ResponseWriter, r *http.Request) {
+func getterMetricHandler(w http.ResponseWriter, r *http.Request) {
 	metricType := strings.Split(r.URL.Path, "/")[2]
 	metricName := strings.Split(r.URL.Path, "/")[3]
 	if metricType == "counter" {
@@ -119,7 +121,7 @@ func runServer() {
 	hndlr.Post("/update/counter/{metricName}/{metricValue}", counterHndlr)
 	hndlr.Post("/update/{metricName}/", notFound)
 	hndlr.Post("/update/*", notUsed)
-	hndlr.Get("/value/*", getterMetricHndlr)
+	hndlr.Get("/value/*", getterMetricHandler)
 	hndlr.Get("/", getterAllHndlr)
 	addr := fmt.Sprintf("%s:%s", host, port)
 	srv := &http.Server{
