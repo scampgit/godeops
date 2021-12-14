@@ -1,0 +1,13 @@
+<h1>All Metrics</h1>
+<table>
+<tr>
+    <td colspan="2"><p align="left"><b>MetricName:</b></p></td>
+    <td colspan="2"><p align="right"><b>Value:</b></p></td>
+</tr>
+{{ range $key, $value := . }}
+	<tr>
+	<td colspan="2"><p align="left">{{$key}}</p></td>
+	<td colspan="2"><p align="right">{{$value}}</p></td>
+	</tr>
+{{end}}
+</table>

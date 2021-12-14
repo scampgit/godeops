@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -14,32 +16,51 @@ import (
 )
 
 const (
-	host           = "127.0.0.1"
-	port           = "8080"
-	reportInterval = 4
-	pollInterval   = 2
+	host                = "127.0.0.1"
+	port                = "8080"
+	reportInterval      = 4
+	pollInterval        = 2
+	metric_type_gauge   = "gauge"
+	metric_type_counter = "counter"
 )
 
-type metric struct {
-	name     string
-	typename string
-	value    float64
+//type metric struct {
+//	name     string
+//	typename string
+//	value    float64
+//}
+
+//func (m metric) setValueInt() int64 {
+//	return int64(m.value)
+//}
+
+//func (m metric) setValueFloat() float64 {
+//	return m.value
+//}
+
+//func metricGauge(name string, value float64) metric {
+//	return metric{name: name, typename: "gauge", value: value}
+//}
+
+//func metricCounter(name string, value float64) metric {
+//	return metric{name: name, typename: "counter", value: value}
+//}
+
+type Metric struct {
+	ID    string   `json:"id"`              // имя метрики
+	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
+	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
+	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
 
-func (m metric) setValueInt() int64 {
-	return int64(m.value)
+var metrics = make(map[string]Metric)
+
+func jMetricGauge(name string, value float64) {
+	metrics[name] = Metric{ID: name, MType: metric_type_gauge, Value: &value}
 }
 
-func (m metric) setValueFloat() float64 {
-	return m.value
-}
-
-func metricGauge(name string, value float64) metric {
-	return metric{name: name, typename: "gauge", value: value}
-}
-
-func metricCounter(name string, value float64) metric {
-	return metric{name: name, typename: "counter", value: value}
+func jMetricCounter(name string, value int64) {
+	metrics[name] = Metric{ID: name, MType: metric_type_counter, Delta: &value}
 }
 
 func main() {
@@ -67,7 +88,6 @@ func getterDatas(ctx context.Context) {
 	var rtm runtime.MemStats
 	var PollCount int64
 
-	client := http.Client{Timeout: pollInterval}
 	ticker := time.NewTicker(pollInterval)
 	PollCount = 0
 	for {
@@ -77,47 +97,48 @@ func getterDatas(ctx context.Context) {
 			runtime.ReadMemStats(&rtm)
 			PollCount++
 			//fmt.Printf("in ticker poll: %d & reportint: %d", PollCount, reportInterval)
-			metrics := []metric{
-				metricGauge("Frees", float64(rtm.Alloc)),
-				metricGauge("Frees", float64(rtm.Alloc)),
-				metricGauge("Frees", float64(rtm.Alloc)),
-				metricGauge("Frees", float64(rtm.Alloc)),
-				metricGauge("BuckHashSys", float64(rtm.BuckHashSys)),
-				metricGauge("Frees", float64(rtm.Frees)),
-				metricGauge("GCCPUFraction", float64(rtm.GCCPUFraction)),
-				metricGauge("GCSys", float64(rtm.GCSys)),
-				metricGauge("HeapAlloc", float64(rtm.HeapAlloc)),
-				metricGauge("HeapIdle", float64(rtm.HeapIdle)),
-				metricGauge("HeapInuse", float64(rtm.HeapInuse)),
-				metricGauge("HeapObjects", float64(rtm.HeapObjects)),
-				metricGauge("HeapReleased", float64(rtm.HeapReleased)),
-				metricGauge("HeapSys", float64(rtm.HeapSys)),
-				metricGauge("LastGC", float64(rtm.LastGC)),
-				metricGauge("Lookups", float64(rtm.Lookups)),
-				metricGauge("MCacheInuse", float64(rtm.MCacheInuse)),
-				metricGauge("MCacheSys", float64(rtm.MCacheSys)),
-				metricGauge("MSpanInuse", float64(rtm.MSpanInuse)),
-				metricGauge("MSpanSys", float64(rtm.MSpanSys)),
-				metricGauge("Mallocs", float64(rtm.Mallocs)),
-				metricGauge("NextGC", float64(rtm.NextGC)),
-				metricGauge("NumForcedGC", float64(rtm.NumForcedGC)),
-				metricGauge("NumGC", float64(rtm.NumGC)),
-				metricGauge("OtherSys", float64(rtm.OtherSys)),
-				metricGauge("PauseTotalNs", float64(rtm.PauseTotalNs)),
-				metricGauge("StackInuse", float64(rtm.StackInuse)),
-				metricGauge("StackSys", float64(rtm.StackSys)),
-				metricGauge("Sys", float64(rtm.Sys)),
-				metricGauge("RandomValue", rand.Float64()*1000),
-			}
-			metricCounter := metricCounter("PollCount", float64(PollCount))
-
+			jMetricGauge("Alloc", float64(rtm.Alloc))
+			jMetricGauge("Alloc", float64(rtm.Alloc))
+			jMetricGauge("TotalAlloc", float64(rtm.TotalAlloc))
+			jMetricGauge("BuckHashSys", float64(rtm.BuckHashSys))
+			jMetricGauge("Frees", float64(rtm.Frees))
+			jMetricGauge("GCCPUFraction", float64(rtm.GCCPUFraction))
+			jMetricGauge("GCSys", float64(rtm.GCSys))
+			jMetricGauge("HeapAlloc", float64(rtm.HeapAlloc))
+			jMetricGauge("HeapIdle", float64(rtm.HeapIdle))
+			jMetricGauge("HeapInuse", float64(rtm.HeapInuse))
+			jMetricGauge("HeapObjects", float64(rtm.HeapObjects))
+			jMetricGauge("HeapReleased", float64(rtm.HeapReleased))
+			jMetricGauge("HeapSys", float64(rtm.HeapSys))
+			jMetricGauge("LastGC", float64(rtm.LastGC))
+			jMetricGauge("Lookups", float64(rtm.Lookups))
+			jMetricGauge("MCacheInuse", float64(rtm.MCacheInuse))
+			jMetricGauge("MCacheSys", float64(rtm.MCacheSys))
+			jMetricGauge("MSpanInuse", float64(rtm.MSpanInuse))
+			jMetricGauge("MSpanSys", float64(rtm.MSpanSys))
+			jMetricGauge("Mallocs", float64(rtm.Mallocs))
+			jMetricGauge("NextGC", float64(rtm.NextGC))
+			jMetricGauge("NumForcedGC", float64(rtm.NumForcedGC))
+			jMetricGauge("NumGC", float64(rtm.NumGC))
+			jMetricGauge("OtherSys", float64(rtm.OtherSys))
+			jMetricGauge("PauseTotalNs", float64(rtm.PauseTotalNs))
+			jMetricGauge("StackInuse", float64(rtm.StackInuse))
+			jMetricGauge("StackSys", float64(rtm.StackSys))
+			jMetricGauge("Sys", float64(rtm.Sys))
+			jMetricGauge("RandomValue", rand.Float64()*100)
+			jMetricCounter("PollCount", int64(PollCount))
 			if PollCount == reportInterval {
-				for _, i := range metrics {
-					i.senderDatas(&client)
+				metricsSnapshot := metrics
+				for _, m := range metricsSnapshot {
+					err := updateMetric(&m)
+					if err != nil {
+						log.Println(err)
+					}
+					if m.ID == "PollCount" {
+						PollCount = 0
+						m.Delta = &PollCount
+					}
 				}
-				metricCounter.senderDatas(&client)
-				client.CloseIdleConnections()
-				PollCount = 0
 			}
 		case <-ctx.Done():
 			fmt.Println("Context is canselled.")
@@ -126,22 +147,22 @@ func getterDatas(ctx context.Context) {
 	}
 }
 
-func (m metric) senderDatas(client *http.Client) error {
-	const (
-		gType     = "gauge"
-		countType = "counter"
-	)
+func updateMetric(m *Metric) error {
 	var url string
-	if m.typename == gType {
-		url = fmt.Sprintf("http://%s:%s/update/%s/%s/%f", host, port, m.typename, m.name, m.setValueFloat())
-	} else if m.typename == countType {
-		url = fmt.Sprintf("http://%s:%s/update/%s/%s/%d", host, port, m.typename, m.name, m.setValueInt())
+
+	mSer, err := json.Marshal(*m)
+	if err != nil {
+		return err
 	}
-	resp, err := client.Post(url, "text/plain", nil)
+	url = fmt.Sprintf("http://%s:%s/update/", host, port)
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(mSer))
+
 	if err != nil {
 		log.Println(err)
 		return err
 	}
+
 	defer resp.Body.Close()
-	return nil
+	return err
 }
